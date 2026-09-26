@@ -6,6 +6,7 @@ A global, repository-agnostic AI-powered GitHub Pull Request reviewer built with
 
 ## Features
 
+- **Risk-Adaptive Routing**: Automatically triages PR risk based on CI static check failures, critical path modifications (e.g., `auth`, `package.json`), and diff complexity. Routes low-risk PRs to faster models and flags high-risk PRs for deep analysis (increasing findings and lowering confidence thresholds) using a heavier model.
 - **Formal GitHub PR Reviews**: Posts official review summaries via `gh pr review`, registering the agent in the PR Reviewers sidebar with review status.
 - **1-Click "Apply Suggestion" Blocks**: Inline comments include native GitHub ` ```suggestion ` blocks, allowing developers to commit recommended fixes directly from the PR diff with a single click.
 - **PR Risk Assessment & Changes Walkthrough**: Delivers a clear risk level (`🟢 Low`, `🟡 Medium`, `🔴 High`) with rationale alongside a structured Markdown table summarizing file-by-file changes.
@@ -67,7 +68,8 @@ jobs:
   review:
     uses: Karthik22296/pr-review-agent/.github/workflows/pr-review.yml@main
     with:
-      ai-model: gemini-3.8-flash # Optional, defaults to gemini-3.8-flash
+      ai-model: gemini-3.8-flash # Used for normal, low-risk PRs
+      ai-model-deep: gemini-3.1-pro # Used for high-risk, complex PRs
     secrets:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 ```

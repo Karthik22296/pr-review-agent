@@ -2,7 +2,7 @@ import type { ReviewProvider } from "./providers/provider.js";
 import { validateReview } from "./validation.js";
 
 export interface Finding {
-  severity: "critical" | "high" | "medium" | "low";
+  severity: "critical" | "high" | "medium" | "low" | "good";
   category: string;
   title: string;
   body: string;
@@ -50,7 +50,7 @@ Return ONLY valid JSON matching this shape:
   ],
   "findings": [
     {
-      "severity": "critical|high|medium|low",
+      "severity": "critical|high|medium|low|good",
       "category": "correctness|security|performance|architecture|testing|maintainability|accessibility|dependencies",
       "title": "short title",
       "body": "actionable explanation",

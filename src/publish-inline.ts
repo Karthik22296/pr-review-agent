@@ -65,6 +65,15 @@ async function main() {
       ? `\n\n\`\`\`suggestion\n${finding.suggestion.trim()}\n\`\`\``
       : "";
 
+    const severityMap: Record<string, string> = {
+      critical: "🔴 CRITICAL",
+      high: "🟠 HIGH",
+      medium: "🟡 MEDIUM",
+      low: "🔵 LOW",
+      good: "✅ GOOD"
+    };
+    const sev = severityMap[finding.severity] || finding.severity.toUpperCase();
+
     const response = await fetch(`https://api.github.com/repos/${repository}/pulls/${prNumber}/comments`, {
       method: "POST",
       headers: {
@@ -74,7 +83,7 @@ async function main() {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        body: `<!-- pr-review-fingerprint:${fingerprint} -->\n**${finding.severity.toUpperCase()} — ${finding.title}** (${finding.category})\n\n${finding.body}${suggestionBlock}`,
+        body: `<!-- pr-review-fingerprint:${fingerprint} -->\n**${sev} — ${finding.title}** (${finding.category})\n\n${finding.body}${suggestionBlock}`,
         commit_id: commitId,
         path: finding.path,
         line: finding.line,

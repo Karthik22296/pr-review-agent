@@ -17,10 +17,21 @@ async function main() {
     model: config.model
   });
 
-  const context = process.env.REVIEW_CONTEXT_FILE
+  let context = process.env.REVIEW_CONTEXT_FILE
     ? readFileSync(process.env.REVIEW_CONTEXT_FILE, "utf8")
     : process.env.REVIEW_CONTEXT;
   if (!context) throw new Error("REVIEW_CONTEXT or REVIEW_CONTEXT_FILE is required");
+
+  if (process.env.DEEP_REVIEW_MODE === "true") {
+    console.warn("Notice: DEEP_REVIEW_MODE is enabled. Proceeding with deep analysis.");
+    config.maxFindings = 15;
+    config.minimumConfidence = 0.6; // lower confidence threshold to allow more subjective findings
+    
+    if (process.env.TRIAGE_REASON) {
+      context += `\n\n=== DEEP REVIEW DIRECTIVE ===\nThis PR was flagged as HIGH RISK because: ${process.env.TRIAGE_REASON}\nPerform a deep, thorough security and logic review.\n`;
+    }
+  }
+
   try {
     const result = await runReview(provider, loadRules(), context, config);
     process.stdout.write(JSON.stringify(result, null, 2));

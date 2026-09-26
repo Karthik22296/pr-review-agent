@@ -1,6 +1,6 @@
 import type { FileWalkthrough, Finding, ReviewResult } from "./review.js";
 
-const severities = new Set(["critical", "high", "medium", "low"]);
+const severities = new Set(["critical", "high", "medium", "low", "good"]);
 const categories = new Set(["correctness", "security", "performance", "architecture", "testing", "maintainability", "accessibility", "dependencies"]);
 const validRiskLevels = new Set(["low", "medium", "high"]);
 
