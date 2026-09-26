@@ -9,7 +9,7 @@ on:
       ai-model:
         required: false
         type: string
-        default: gemini-2.5-flash
+        default: gemini-3.8-flash
 
   pull_request:
     types: [opened, synchronize, reopened]
@@ -79,7 +79,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           REVIEW_CONTEXT: ${{ steps.context.outputs.context }}
           AI_PROVIDER: gemini
-          AI_MODEL: ${{ inputs.ai-model || 'gemini-2.5-flash' }}
+          AI_MODEL: ${{ inputs.ai-model || 'gemini-3.8-flash' }}
         run: node dist/index.js > /tmp/review.json
 
       - name: Publish review
