@@ -9,7 +9,7 @@ on:
       ai-model:
         required: false
         type: string
-        default: gemini-3.8-flash
+        default: auto
 
   issue_comment:
     types: [created]
@@ -55,5 +55,5 @@ jobs:
           COMMENT_PATH: ${{ github.event.comment.path }}
           DIFF_HUNK: ${{ github.event.comment.diff_hunk }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          AI_MODEL: ${{ inputs.ai-model || 'gemini-3.8-flash' }}
+          AI_MODEL: ${{ inputs.ai-model || 'auto' }}
         run: node dist/commands.js

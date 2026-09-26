@@ -6,6 +6,7 @@ A global, repository-agnostic AI-powered GitHub Pull Request reviewer built with
 
 ## Features
 
+- **Dynamic Model Discovery & Auto-Selection**: Automatically queries Google Generative AI to discover all models available for the provided `GEMINI_API_KEY`. Automatically ranks and selects the optimal model for each task (e.g. latest Pro models for risky/complex PRs, latest Flash models for fast standard reviews and `/ask` queries) without requiring hardcoded model strings.
 - **Interactive PR Commands (`/ask` & `/review`)**: Developers can ask targeted questions directly on PR comments or diff hunks using `/ask <question>`, or trigger a re-review using `/review`.
 - **Quality Gate Commit Status**: Posts a GitHub status check (`AI Review / Quality Gate`) that blocks PR merging on `🔴 CRITICAL` issues while allowing non-blocking issues (`🟠 HIGH`, `🟡 MEDIUM`, `🔵 LOW`, `✅ GOOD`) to pass.
 - **Auto-Resolving Addressed Comments**: On incremental commits (`pull_request: synchronize`), comments for issues that have been addressed are automatically marked resolved via GraphQL and acknowledged with a resolution note, while new issues on modified lines get fresh inline comments.
