@@ -1,74 +1,114 @@
 # PR Review Agent
 
-A lightweight project for building an automated pull request review assistant. The goal is to analyze code changes, summarize the impact, surface risks, and help maintainers make faster, more informed review decisions.
+Global, repository-agnostic AI-powered GitHub pull request reviewer.
 
-## Overview
+## What it does
 
-This repository is intended to serve as the starting point for a PR review agent that can:
+When connected to a repository, the agent can review pull requests for:
 
-- inspect a pull request diff
-- identify likely issues or risky changes
-- summarize the intent of code updates
-- flag areas that may need human attention
-- support a review workflow with minimal manual overhead
+- correctness and likely bugs
+- security risks
+- performance problems
+- architecture and maintainability
+- missing or weak tests
+- accessibility concerns
+- dependency impact
 
-## Suggested Architecture
+The core reviewer is domain-agnostic. A consuming repository can provide optional rules in `.github/pr-review.yml`.
 
-A typical implementation may include:
+## Architecture
 
-- a GitHub or GitLab integration layer
-- diff parsing and change analysis
-- policy or lint checks
-- AI-powered review summarization
-- result formatting for comments or reports
-
-## Getting Started
-
-1. Clone the repository.
-2. Create a virtual environment for Python or your preferred runtime.
-3. Install dependencies.
-4. Add any required configuration values such as API keys or repository metadata.
-5. Run the review workflow against a local diff or connected repo.
-
-Example shell flow:
-
-```bash
-git clone <repository-url>
-cd pr-review-agent
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+```
+Pull Request
+    ↓
+Reusable GitHub Actions workflow
+    ↓
+PR metadata + diff + repository rules
+    ↓
+AI provider
+    ↓
+Structured findings
+    ↓
+GitHub PR review comment
 ```
 
-## Environment Variables
+Gemini is the first provider, but the provider interface is intentionally replaceable.
 
-Configure any required credentials or settings before running the tool. Common examples include:
+## Using the global workflow
 
-- `GITHUB_TOKEN`
-- `GITLAB_TOKEN`
-- `OPENAI_API_KEY` or equivalent model provider configuration
-- repository or workspace path settings
+A repository can add a small caller workflow:
 
-## Project Structure
+```yaml
+name: PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  review:
+    uses: Karthik22296/pr-review-agent/.github/workflows/pr-review.yml@main
+    secrets:
+      GEMINI_API_KEY: \${{ secrets.GEMINI_API_KEY }}
+```
+
+For organization-wide adoption, keep the Gemini secret configured in each consuming repository or at the organization level according to your GitHub setup.
+
+## Optional repository rules
+
+A consuming repository may add:
 
 ```text
-.
-├── README.md
-├── src/
-├── tests/
-├── requirements.txt
-└── .env.example
+.github/pr-review.yml
 ```
 
-This structure is intentionally flexible and can be adapted as the agent grows.
+Example:
 
-## Development Notes
+```yaml
+review:
+  enabled: true
 
-- Keep review logic modular and testable.
-- Prefer clear prompts and deterministic output formatting.
-- Validate changed behavior with focused tests for diff parsing, policy checks, and review summaries.
-- Treat review comments as actionable guidance, not as absolute correctness guarantees.
+rules:
+  security: true
+  performance: true
+  architecture: true
+  testing: true
 
-## License
+custom_rules:
+  - "All database writes must use transactions."
+  - "Do not expose internal exception details through API responses."
+```
 
-This project does not yet include a license file. Add one before publishing or distributing the repository.
+These rules are treated as review instructions/data. The global agent remains independent of any one domain.
+
+## Security model
+
+- The AI key is supplied through GitHub Actions secrets.
+- The reusable workflow does not execute the PR's application code.
+- Repository-specific configuration is read as data.
+- Do not use `pull_request_target` for jobs that execute untrusted PR code.
+- The initial reviewer only comments; it does not merge, approve, or modify code.
+
+## Development
+
+```bash
+npm ci
+npm run build
+```
+
+Environment variables:
+
+- `GEMINI_API_KEY`
+- `AI_PROVIDER`
+- `AI_MODEL`
+- `REVIEW_CONTEXT`
+
+## Roadmap
+
+1. Initial reusable workflow and Gemini provider
+2. Better repository/framework detection
+3. Inline diff comments
+4. Static-analysis/test result integration
+5. Finding validation and duplicate suppression
+6. Additional AI providers
+7. Review metrics and administration
