@@ -16,7 +16,11 @@ export function validateReview(result: ReviewResult, maxFindings: number, minimu
     if (raw.path !== null && raw.path !== undefined && typeof raw.path !== "string") continue;
     if (raw.line !== null && raw.line !== undefined && (!Number.isInteger(raw.line) || raw.line < 1)) continue;
 
-    const suggestion = typeof raw.suggestion === "string" && raw.suggestion.trim() ? raw.suggestion.trim() : null;
+    let suggestion = typeof raw.suggestion === "string" && raw.suggestion.trim() ? raw.suggestion.trim() : null;
+    if (suggestion) {
+      suggestion = suggestion.replace(/^\s*```(?:suggestion|[a-z0-9_-]+)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+      if (!suggestion) suggestion = null;
+    }
 
     const key = [raw.path ?? "", raw.line ?? "", raw.title.trim().toLowerCase()].join("|");
     if (seen.has(key)) continue;

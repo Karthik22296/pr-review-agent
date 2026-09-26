@@ -178,7 +178,7 @@ jobs:
             walkthroughSection = `### 📋 Changes Walkthrough\n| File | Summary |\n| :--- | :--- |\n${rows}`;
           }
 
-          const severityMap: Record<string, string> = {
+          const severityMap = {
             critical: '🔴 CRITICAL',
             high: '🟠 HIGH',
             medium: '🟡 MEDIUM',
