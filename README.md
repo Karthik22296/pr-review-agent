@@ -45,11 +45,15 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   review:
     uses: Karthik22296/pr-review-agent/.github/workflows/pr-review.yml@main
     secrets:
-      GEMINI_API_KEY: \${{ secrets.GEMINI_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 ```
 
 For organization-wide adoption, keep the Gemini secret configured in each consuming repository or at the organization level according to your GitHub setup.
