@@ -1,0 +1,19 @@
+review:
+  enabled: true
+  maxFiles: 80
+  maxDiffCharacters: 120000
+  maxFindings: 15
+  minimumConfidence: 0.75
+
+categories:
+  - correctness
+  - security
+  - performance
+  - architecture
+  - testing
+  - maintainability
+  - accessibility
+  - dependencies
+
+ai:
+  provider: gemini
