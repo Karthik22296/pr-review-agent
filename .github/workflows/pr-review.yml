@@ -84,6 +84,24 @@ jobs:
           gh api "repos/$REPOSITORY/git/trees/$TREE_SHA?recursive=1" --jq '.tree[] | select(.type=="blob") | .path' > /tmp/repo-files.txt
           node --input-type=module -e 'import fs from "node:fs"; import("./dist/stack.js").then(({detectStack}) => { const stack=detectStack(fs.readFileSync("/tmp/repo-files.txt","utf8").split("\\n").filter(Boolean)); fs.appendFileSync("/tmp/review-context.txt", "\\nRepository stack detected:\\n"+JSON.stringify(stack,null,2)); })'
 
+      - name: Add relevant source context
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          gh api "repos/$REPOSITORY/pulls/$PR_NUMBER/files?per_page=100" --paginate --jq '.[].filename' | head -n 20 > /tmp/changed-files.txt
+          while IFS= read -r path; do
+            [ -z "$path" ] && continue
+            encoded=$(node -e 'console.log(encodeURIComponent(process.argv[1]))' "$path")
+            if content=$(gh api "repos/$REPOSITORY/contents/$encoded?ref=$HEAD_SHA" --jq '.content' 2>/dev/null | tr -d '\n' | base64 -d 2>/dev/null); then
+              printf '\n--- Source: %s ---\n' "$path" >> /tmp/review-context.txt
+              printf '%s\n' "$content" | head -c 20000 >> /tmp/review-context.txt
+              printf '\n' >> /tmp/review-context.txt
+            fi
+          done < /tmp/changed-files.txt
+
       - name: Prepare repository rules
         env:
           GH_TOKEN: ${{ github.token }}
