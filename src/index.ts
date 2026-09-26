@@ -21,8 +21,17 @@ async function main() {
     ? readFileSync(process.env.REVIEW_CONTEXT_FILE, "utf8")
     : process.env.REVIEW_CONTEXT;
   if (!context) throw new Error("REVIEW_CONTEXT or REVIEW_CONTEXT_FILE is required");
-  const result = await runReview(provider, loadRules(), context, config);
-  process.stdout.write(JSON.stringify(result, null, 2));
+  try {
+    const result = await runReview(provider, loadRules(), context, config);
+    process.stdout.write(JSON.stringify(result, null, 2));
+  } catch (error: unknown) {
+    const status = (error as { status?: number })?.status;
+    if (status === 503 || status === 429) {
+      console.warn(`Notice: AI review provider temporarily unavailable (${status}). Skipping review for this run.`);
+      return;
+    }
+    throw error;
+  }
 }
 
 main().catch(error => { console.error(error); process.exit(1); });
