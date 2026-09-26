@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { loadRepositoryRules, formatRepositoryRules } from "./rules.js";
 
 export interface ReviewConfig {
   maxFiles: number;
@@ -25,5 +26,12 @@ export function loadConfig(): ReviewConfig {
 
 export function loadRules(): string {
   const path = process.env.REVIEW_RULES_FILE ?? "rules/default.md";
-  return readFileSync(path, "utf8");
+  const globalRules = readFileSync(path, "utf8");
+  const repositoryRules = loadRepositoryRules();
+  if (!repositoryRules.enabled) {
+    console.log("Notice: AI PR review is disabled by repository configuration (.github/pr-review.yml).");
+    process.exit(0);
+  }
+  const formattedRepoRules = formatRepositoryRules(repositoryRules);
+  return formattedRepoRules ? globalRules + "\n\n" + formattedRepoRules : globalRules;
 }
