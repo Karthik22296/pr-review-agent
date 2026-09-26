@@ -102,6 +102,18 @@ jobs:
             fi
           done < /tmp/changed-files.txt
 
+      - name: Collect existing CI results
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          {
+            echo
+            echo "Existing CI/check results:"
+            gh api "repos/$REPOSITORY/commits/$HEAD_SHA/check-runs?per_page=100" --jq '.check_runs[] | select(.conclusion != null and .name != "Initial AI review") | "- " + .name + ": " + .conclusion'
+          } >> /tmp/review-context.txt
+
       - name: Prepare repository rules
         env:
           GH_TOKEN: ${{ github.token }}
