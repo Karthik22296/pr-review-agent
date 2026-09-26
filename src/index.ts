@@ -3,7 +3,7 @@ import { loadConfig, loadRules } from "./config.js";
 import { createProvider } from "./providers/registry.js";
 import { runReview } from "./review.js";
 
-import { resolveGeminiModel } from "./models.js";
+import { resolveGeminiModelCandidates } from "./models.js";
 
 async function main() {
   const config = loadConfig();
@@ -15,13 +15,13 @@ async function main() {
   }
 
   const isDeep = process.env.DEEP_REVIEW_MODE === "true";
-  const modelName = providerName === "gemini"
-    ? await resolveGeminiModel(apiKey, { deep: isDeep, explicitModel: config.model })
+  const modelCandidates = providerName === "gemini"
+    ? await resolveGeminiModelCandidates(apiKey, { deep: isDeep, explicitModel: config.model })
     : config.model;
 
   const provider = createProvider(providerName, {
     apiKey,
-    model: modelName
+    model: modelCandidates
   });
 
   let context = process.env.REVIEW_CONTEXT_FILE

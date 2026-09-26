@@ -62,28 +62,45 @@ function scoreModel(modelName: string, wantDeep: boolean): number {
   return score;
 }
 
+export async function resolveGeminiModelCandidates(
+  apiKey: string,
+  options: { deep?: boolean; explicitModel?: string }
+): Promise<string[]> {
+  const explicit = options.explicitModel?.trim();
+  const wantDeep = Boolean(options.deep);
+
+  const available = await fetchAvailableGeminiModels(apiKey);
+
+  const fallbackList = wantDeep
+    ? ["gemini-1.5-pro-latest", "gemini-1.5-pro", "gemini-1.5-flash-latest", "gemini-1.5-flash"]
+    : ["gemini-1.5-flash-latest", "gemini-1.5-flash", "gemini-1.5-pro-latest", "gemini-1.5-pro"];
+
+  let candidates: string[] = [];
+
+  if (available.length > 0) {
+    const ranked = [...available]
+      .filter(m => scoreModel(m, wantDeep) > -500)
+      .sort((a, b) => scoreModel(b, wantDeep) - scoreModel(a, wantDeep));
+    candidates = ranked;
+  } else {
+    candidates = fallbackList;
+  }
+
+  // If user passed a specific explicit model other than 'auto', prepend it as primary candidate
+  if (explicit && explicit.toLowerCase() !== "auto") {
+    candidates = [explicit, ...candidates.filter(m => m !== explicit)];
+  }
+
+  // Deduplicate and return top 5 models for fallback rotation
+  const uniqueCandidates = Array.from(new Set(candidates)).slice(0, 5);
+  console.log(`Model rotation pool (${wantDeep ? "deep" : "standard"}):`, uniqueCandidates);
+  return uniqueCandidates;
+}
+
 export async function resolveGeminiModel(
   apiKey: string,
   options: { deep?: boolean; explicitModel?: string }
 ): Promise<string> {
-  const explicit = options.explicitModel?.trim();
-  const wantDeep = Boolean(options.deep);
-
-  // If user passed a specific model other than 'auto' or empty, check if we should just use it
-  if (explicit && explicit.toLowerCase() !== "auto") {
-    return explicit;
-  }
-
-  const available = await fetchAvailableGeminiModels(apiKey);
-  if (available.length === 0) {
-    // Fallback defaults if API call failed
-    return wantDeep ? "gemini-1.5-pro-latest" : "gemini-1.5-flash-latest";
-  }
-
-  // Sort available models by descending score
-  const ranked = [...available].sort((a, b) => scoreModel(b, wantDeep) - scoreModel(a, wantDeep));
-  const chosen = ranked[0];
-
-  console.log(`Discovered ${available.length} models for API key. Auto-selected optimal model: ${chosen} (mode=${wantDeep ? "deep" : "standard"})`);
-  return chosen;
+  const candidates = await resolveGeminiModelCandidates(apiKey, options);
+  return candidates[0];
 }

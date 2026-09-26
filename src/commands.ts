@@ -1,5 +1,5 @@
 import { createProvider } from "./providers/registry.js";
-import { resolveGeminiModel } from "./models.js";
+import { resolveGeminiModelCandidates } from "./models.js";
 
 async function addReaction(token: string, repository: string, commentType: string, commentId: string, content: "eyes" | "rocket" | "+1") {
   try {
@@ -108,8 +108,8 @@ async function main() {
 
     await addReaction(token, repository, commentType, commentId, "eyes");
 
-    const chosenModel = await resolveGeminiModel(apiKey, { deep: false, explicitModel: model });
-    const provider = createProvider("gemini", { apiKey, model: chosenModel });
+    const candidates = await resolveGeminiModelCandidates(apiKey, { deep: false, explicitModel: model });
+    const provider = createProvider("gemini", { apiKey, model: candidates });
 
     let codeContext = "";
     if (commentType === "pull_request_review_comment" && filePath) {
