@@ -1,0 +1,27 @@
+{
+  "type": "object",
+  "required": ["summary", "findings", "tests"],
+  "properties": {
+    "summary": { "type": "string" },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["severity", "category", "title", "body", "confidence"],
+        "properties": {
+          "severity": { "enum": ["critical", "high", "medium", "low"] },
+          "category": { "type": "string" },
+          "title": { "type": "string" },
+          "body": { "type": "string" },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "path": { "type": ["string", "null"] },
+          "line": { "type": ["integer", "null"] }
+        }
+      }
+    },
+    "tests": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}
