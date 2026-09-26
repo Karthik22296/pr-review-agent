@@ -28,7 +28,7 @@ async function main() {
   const findings = (review.findings ?? []).filter(f => f.path && Number.isInteger(f.line) && Number(f.line) > 0);
   if (findings.length === 0) return;
 
-  const existingResponse = await fetch(`https://api.github.com/repos/${repository}/pulls/${prNumber}/comments`, {
+  const existingResponse = await fetch(`https://api.github.com/repos/${repository}/pulls/${prNumber}/comments?per_page=100`, {
     headers: {
       "Authorization": `Bearer ${token}`,
       "Accept": "application/vnd.github+json",
@@ -66,7 +66,8 @@ async function main() {
     });
 
     if (!response.ok) {
-      console.warn(`Could not anchor finding at ${finding.path}:${finding.line}: ${response.status}`);
+      const errorText = await response.text();
+      console.warn(`Could not anchor finding at ${finding.path}:${finding.line} (${response.status}): ${errorText}`);
     }
   }
 }
