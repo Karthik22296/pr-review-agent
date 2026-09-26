@@ -124,3 +124,12 @@ jobs:
           if [ -f /tmp/review.md ]; then
             gh pr comment "$PR_NUMBER" --repo "$REPOSITORY" --body-file /tmp/review.md
           fi
+
+      - name: Publish inline comments
+        if: hashFiles('/tmp/review.json') != ''
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node dist/publish-inline.js
