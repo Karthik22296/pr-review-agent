@@ -1,4 +1,5 @@
 import type { ReviewProvider } from "./providers/provider.js";
+import { validateReview } from "./validation.js";
 
 export interface Finding {
   severity: "critical" | "high" | "medium" | "low";
@@ -49,9 +50,5 @@ ${rules}`;
   const raw = stripJsonFence(await provider.review({ system, context }));
   const parsed = JSON.parse(raw) as ReviewResult;
 
-  parsed.findings = (parsed.findings ?? [])
-    .filter(f => Number(f.confidence) >= config.minimumConfidence)
-    .slice(0, config.maxFindings);
-
-  return parsed;
+  return validateReview(parsed, config.maxFindings, config.minimumConfidence);
 }
