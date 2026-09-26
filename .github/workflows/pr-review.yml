@@ -1,6 +1,16 @@
 name: AI PR Review
 
 on:
+  workflow_call:
+    secrets:
+      GEMINI_API_KEY:
+        required: true
+    inputs:
+      ai-model:
+        required: false
+        type: string
+        default: gemini-2.5-flash
+
   pull_request:
     types: [opened, synchronize, reopened]
 
@@ -13,7 +23,6 @@ jobs:
     name: Initial AI review
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: github.event.pull_request.draft == false
     steps:
       - name: Checkout agent
         uses: actions/checkout@v4
@@ -25,15 +34,28 @@ jobs:
         id: context
         env:
           GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          gh pr diff "${{ github.event.pull_request.number }}"             --repo "${{ github.repository }}" > /tmp/pr.diff
+          gh pr diff "$PR_NUMBER" --repo "$REPOSITORY" > /tmp/pr.diff
           {
-            echo "Repository: ${{ github.repository }}"
-            echo "PR: #${{ github.event.pull_request.number }}"
+            echo "Repository: $REPOSITORY"
+            echo "PR: #$PR_NUMBER"
             echo
             echo "Diff:"
             head -c 120000 /tmp/pr.diff
           } > /tmp/review-context.txt
+
+          # Read optional repository-specific rules as data only.
+          if gh api "repos/$REPOSITORY/contents/.github/pr-review.yml?ref=$HEAD_SHA"               --jq '.content' 2>/dev/null | base64 -d > /tmp/repo-review.yml; then
+            {
+              echo
+              echo "Repository-specific review configuration:"
+              cat /tmp/repo-review.yml
+            } >> /tmp/review-context.txt
+          fi
+
           {
             echo 'context<<EOF'
             cat /tmp/review-context.txt
@@ -44,6 +66,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
@@ -52,19 +75,18 @@ jobs:
         run: npm run build
 
       - name: Run AI review
-        id: review
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           REVIEW_CONTEXT: ${{ steps.context.outputs.context }}
           AI_PROVIDER: gemini
-          AI_MODEL: ${{ vars.AI_MODEL || 'gemini-2.5-flash' }}
-        run: |
-          node dist/index.js > /tmp/review.json
-          cat /tmp/review.json
+          AI_MODEL: ${{ inputs.ai-model }}
+        run: node dist/index.js > /tmp/review.json
 
       - name: Publish review
         env:
           GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           node - <<'NODE'
           const fs = require('fs');
@@ -86,4 +108,4 @@ jobs:
           ].join('\\n');
           fs.writeFileSync('/tmp/review.md', body);
           NODE
-          gh pr comment "${{ github.event.pull_request.number }}"             --repo "${{ github.repository }}"             --body-file /tmp/review.md
+          gh pr comment "$PR_NUMBER" --repo "$REPOSITORY" --body-file /tmp/review.md
