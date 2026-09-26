@@ -82,7 +82,7 @@ jobs:
         run: |
           TREE_SHA=$(gh api "repos/$REPOSITORY/commits/$HEAD_SHA" --jq '.commit.tree.sha')
           gh api "repos/$REPOSITORY/git/trees/$TREE_SHA?recursive=1" --jq '.tree[] | select(.type=="blob") | .path' > /tmp/repo-files.txt
-          node --input-type=module -e 'import("./dist/stack.js").then(({detectStack}) => { const fs=require("fs"); const stack=detectStack(fs.readFileSync("/tmp/repo-files.txt","utf8").split("\\n").filter(Boolean)); fs.appendFileSync("/tmp/review-context.txt", "\\nRepository stack detected:\\n"+JSON.stringify(stack,null,2)); })'
+          node --input-type=module -e 'import fs from "node:fs"; import("./dist/stack.js").then(({detectStack}) => { const stack=detectStack(fs.readFileSync("/tmp/repo-files.txt","utf8").split("\\n").filter(Boolean)); fs.appendFileSync("/tmp/review-context.txt", "\\nRepository stack detected:\\n"+JSON.stringify(stack,null,2)); })'
       - name: Run AI review
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
