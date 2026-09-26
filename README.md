@@ -1,45 +1,53 @@
 # PR Review Agent
 
-Global, repository-agnostic AI-powered GitHub pull request reviewer.
+A global, repository-agnostic AI-powered GitHub Pull Request reviewer built with GitHub Actions and TypeScript.
 
-## What it does
+---
 
-When connected to a repository, the agent can review pull requests for:
+## Features
 
-- correctness and likely bugs
-- security risks
-- performance problems
-- architecture and maintainability
-- missing or weak tests
-- accessibility concerns
-- dependency impact
+- **Formal GitHub PR Reviews**: Posts official review summaries via `gh pr review`, registering the agent in the PR Reviewers sidebar with review status.
+- **Line-Anchored Inline Comments**: Posts findings anchored to exact file diff lines with automatic `<!-- pr-review-fingerprint -->` SHA-256 deduplication so identical comments are not re-posted across incremental pushes.
+- **Repository Stack Detection**: Automatically scans tree blobs to detect languages, frameworks, and tools (Angular, React, Vue, Node.js, Python, Java, Go, Rust, Docker, etc.) and injects tailored context into the prompt.
+- **Source Context Enrichment**: Fetches complete source content for modified files to provide the AI model with surrounding context beyond the raw diff.
+- **CI / Static Checks Integration**: Aggregates conclusions from preceding or concurrent GitHub Actions check runs (linters, test suites, builds) to inform the review.
+- **Customizable Repository Rules**: Consuming repositories can supply `.github/pr-review.yml` to toggle categories, enable/disable reviews, or define project-specific coding guidelines.
+- **Robust Provider Architecture**: Pluggable AI provider interface with Gemini integration, exponential backoff retries for transient 503/429 errors, and defensive JSON schema validation.
 
-The core reviewer is domain-agnostic. A consuming repository can provide optional rules in `.github/pr-review.yml`.
+---
 
 ## Architecture
 
 ```
-Pull Request
-    ↓
-Reusable GitHub Actions workflow
-    ↓
-PR metadata + diff + repository rules
-    ↓
-AI provider
-    ↓
-Structured findings
-    ↓
-GitHub PR review & inline comments
+                 Pull Request Opened / Synchronized
+                                ↓
+               Caller Workflow (Consumer Repository)
+                                ↓
+    Reusable Workflow (.github/workflows/pr-review.yml@main)
+     ├── Git diff & PR metadata collection
+     ├── Repository stack detection (src/stack.ts)
+     ├── Changed-file source enrichment
+     ├── Preceding CI check runs collection
+     └── Repository rule loading (.github/pr-review.yml)
+                                ↓
+                        AI Provider Runner
+     ├── Provider Registry (src/providers/registry.ts)
+     ├── Gemini Provider with exponential retries (src/providers/gemini.ts)
+     └── Defensive finding schema validation (src/validation.ts)
+                                ↓
+                       Review Publication
+     ├── Line-anchored inline diff comments (src/publish-inline.ts)
+     └── Formal GitHub Review submission (gh pr review --comment)
 ```
 
-Gemini is the first provider, but the provider interface is intentionally replaceable.
+---
 
-## Using the global workflow
+## Quickstart: Using in Any Repository
 
-A repository can add a small caller workflow:
+To enable automated reviews on a repository, create `.github/workflows/pr-review.yml`:
 
 ```yaml
-name: PR Review
+name: AI PR Review
 
 on:
   pull_request:
@@ -52,67 +60,106 @@ permissions:
 jobs:
   review:
     uses: Karthik22296/pr-review-agent/.github/workflows/pr-review.yml@main
+    with:
+      ai-model: gemini-3.8-flash # Optional, defaults to gemini-3.8-flash
     secrets:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 ```
 
-For organization-wide adoption, keep the Gemini secret configured in each consuming repository or at the organization level according to your GitHub setup.
+> **Note on Permissions**:
+> The caller workflow must grant `pull-requests: write` and `contents: read` so that the reusable workflow can inspect diffs, fetch source context, and publish formal reviews and inline comments.
 
-## Optional repository rules
+### Secret Setup
 
-A consuming repository may add:
+Add `GEMINI_API_KEY` to the repository secrets (**Settings → Secrets and variables → Actions**) or configure it at the organization level.
 
-```text
-.github/pr-review.yml
-```
+---
 
-Example:
+## Repository Rules Configuration (`.github/pr-review.yml`)
+
+Consuming repositories can optionally customize review behavior by adding `.github/pr-review.yml` in the root of the repository:
 
 ```yaml
-review:
-  enabled: true
+# Enable or disable automated AI reviews for this repo
+enabled: true
 
-rules:
-  security: true
-  performance: true
-  architecture: true
-  testing: true
+# Toggle specific review categories
+correctness: true
+security: true
+performance: true
+architecture: true
+testing: true
+maintainability: true
+accessibility: true
+dependencies: true
 
+# Add domain-specific or team-specific rules
 custom_rules:
-  - "All database writes must use transactions."
-  - "Do not expose internal exception details through API responses."
+  - "All database operations must be wrapped in transactions."
+  - "Do not expose raw internal exception traces in API responses."
+  - "Components must use ChangeDetectionStrategy.OnPush."
+  - "All HTTP calls must include explicit error handling."
 ```
 
-These rules are treated as review instructions/data. The global agent remains independent of any one domain.
+---
 
-## Security model
+## Review Output
 
-- The AI key is supplied through GitHub Actions secrets.
-- The reusable workflow does not execute the PR's application code.
-- Repository-specific configuration is read as data.
-- Do not use `pull_request_target` for jobs that execute untrusted PR code.
-- The initial reviewer only comments; it does not merge, approve, or modify code.
+1. **Official GitHub PR Review**:
+   - The overall summary, findings breakdown, and test recommendations are submitted as a GitHub Pull Request Review (`gh pr review --comment`).
+   - The bot appears under the **Reviewers** section on the pull request sidebar.
+2. **Inline Comments**:
+   - High-confidence findings with valid file paths and line numbers are posted directly on the corresponding diff lines.
+   - Each comment includes a deterministic SHA-256 fingerprint comment header to prevent duplicates across PR updates.
+
+---
+
+## Security Model
+
+- **Safe Execution**: The reusable workflow executes static analysis and prompt generation inside an isolated runner; it never builds or executes untrusted pull request code.
+- **Data Boundaries**: Review guidelines and configuration files are read strictly as data.
+- **No Direct Merges**: The review agent provides purely informational reviews and suggestions; human review remains authoritative.
+
+---
 
 ## Development
 
+### Prerequisites
+
+- Node.js 20+
+- npm
+
+### Build
+
 ```bash
+# Install dependencies
 npm ci
+
+# Compile TypeScript
 npm run build
 ```
 
-Environment variables:
+### Environment Variables
 
-- `GEMINI_API_KEY`
-- `AI_PROVIDER`
-- `AI_MODEL`
-- `REVIEW_CONTEXT`
+| Variable | Description |
+| :--- | :--- |
+| `GEMINI_API_KEY` | API key for Google Gemini provider |
+| `AI_PROVIDER` | Provider identifier (default: `gemini`) |
+| `AI_MODEL` | Model name (default: `gemini-3.8-flash`) |
+| `REVIEW_CONTEXT` | Raw string review context (or use `REVIEW_CONTEXT_FILE`) |
+| `REVIEW_CONTEXT_FILE` | Path to text file containing review context |
+| `REPOSITORY_RULES_FILE`| Path to `.github/pr-review.yml` |
+
+---
 
 ## Roadmap
 
-1. Initial reusable workflow and Gemini provider
-2. Better repository/framework detection
-3. Inline diff comments
-4. Static-analysis/test result integration
-5. Finding validation and duplicate suppression
-6. Additional AI providers
-7. Review metrics and administration
+- [x] Reusable GitHub Actions workflow and Gemini provider
+- [x] Multi-provider registry interface
+- [x] Repository and framework stack detection
+- [x] Changed-file source context enrichment
+- [x] Static-analysis & CI check result integration
+- [x] Defensive finding schema validation
+- [x] Line-anchored inline diff comments with SHA-256 fingerprint deduplication
+- [x] Official GitHub PR Review submission (`gh pr review`)
+- [ ] Review metrics and telemetry
