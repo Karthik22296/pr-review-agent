@@ -21,6 +21,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  statuses: write
 
 jobs:
   review:
@@ -156,7 +157,7 @@ jobs:
           node - <<'NODE'
           const fs = require('fs');
           if (!fs.existsSync('/tmp/review.json') || fs.statSync('/tmp/review.json').size === 0) {
-            console.log('No review output generated (e.g. GEMINI_API_KEY secret not configured). Skipping comment publication.');
+            console.log('No review output generated (rate-limited by AI provider or GEMINI_API_KEY missing). Skipping comment publication.');
             process.exit(0);
           }
           const r = JSON.parse(fs.readFileSync('/tmp/review.json', 'utf8'));
@@ -232,6 +233,15 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: node dist/publish-inline.js
+
+      - name: Publish commit status check
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: node dist/status.js
 
       - name: Add PR labels
         if: always()

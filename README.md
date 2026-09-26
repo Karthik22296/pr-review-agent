@@ -6,6 +6,9 @@ A global, repository-agnostic AI-powered GitHub Pull Request reviewer built with
 
 ## Features
 
+- **Interactive PR Commands (`/ask` & `/review`)**: Developers can ask targeted questions directly on PR comments or diff hunks using `/ask <question>`, or trigger a re-review using `/review`.
+- **Quality Gate Commit Status**: Posts a GitHub status check (`AI Review / Quality Gate`) that blocks PR merging on `🔴 CRITICAL` issues while allowing non-blocking issues (`🟠 HIGH`, `🟡 MEDIUM`, `🔵 LOW`, `✅ GOOD`) to pass.
+- **Auto-Resolving Addressed Comments**: On incremental commits (`pull_request: synchronize`), comments for issues that have been addressed are automatically marked resolved via GraphQL and acknowledged with a resolution note, while new issues on modified lines get fresh inline comments.
 - **Risk-Adaptive Routing**: Automatically triages PR risk based on CI static check failures, critical path modifications (e.g., `auth`, `package.json`), and diff complexity. Routes low-risk PRs to faster models and flags high-risk PRs for deep analysis (increasing findings and lowering confidence thresholds) using a heavier model.
 - **Formal GitHub PR Reviews**: Posts official review summaries via `gh pr review`, registering the agent in the PR Reviewers sidebar with review status.
 - **1-Click "Apply Suggestion" Blocks**: Inline comments include native GitHub ` ```suggestion ` blocks, allowing developers to commit recommended fixes directly from the PR diff with a single click.

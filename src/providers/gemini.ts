@@ -11,7 +11,7 @@ export class GeminiProvider implements ReviewProvider {
 
   async review(input: { system: string; context: string }): Promise<string> {
     const prompt = [input.system, "\n\nRepository/PR context:\n", input.context].join("");
-    const maxRetries = 3;
+    const maxRetries = 4;
     let lastError: unknown;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -22,8 +22,9 @@ export class GeminiProvider implements ReviewProvider {
         lastError = err;
         const status = (err as { status?: number })?.status;
         if (attempt < maxRetries && (status === 503 || status === 429)) {
-          console.warn(`Gemini API returned ${status} (attempt ${attempt}/${maxRetries}), retrying in ${attempt * 2}s...`);
-          await new Promise(resolve => setTimeout(resolve, attempt * 2000));
+          const delaySeconds = status === 429 ? attempt * 12 : attempt * 3;
+          console.warn(`Gemini API returned ${status} (attempt ${attempt}/${maxRetries}), retrying in ${delaySeconds}s...`);
+          await new Promise(resolve => setTimeout(resolve, delaySeconds * 1000));
           continue;
         }
         throw err;

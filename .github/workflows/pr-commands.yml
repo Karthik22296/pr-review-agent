@@ -1,0 +1,59 @@
+name: AI PR Commands
+
+on:
+  workflow_call:
+    secrets:
+      GEMINI_API_KEY:
+        required: true
+    inputs:
+      ai-model:
+        required: false
+        type: string
+        default: gemini-3.8-flash
+
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  command:
+    if: startsWith(github.event.comment.body, '/ask') || startsWith(github.event.comment.body, '/review')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout agent
+        uses: actions/checkout@v4
+        with:
+          repository: Karthik22296/pr-review-agent
+          ref: ${{ github.repository == 'Karthik22296/pr-review-agent' && (github.event.pull_request.head.sha || github.sha) || 'main' }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build agent
+        run: npm run build
+
+      - name: Handle PR Command
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          COMMENT_TYPE: ${{ github.event_name }}
+          COMMENT_PATH: ${{ github.event.comment.path }}
+          DIFF_HUNK: ${{ github.event.comment.diff_hunk }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          AI_MODEL: ${{ inputs.ai-model || 'gemini-3.8-flash' }}
+        run: node dist/commands.js
