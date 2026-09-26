@@ -1,5 +1,5 @@
 import { loadConfig, loadRules } from "./config.js";
-import { GeminiProvider } from "./providers/gemini.js";
+import { createProvider } from "./providers/registry.js";
 import { runReview } from "./review.js";
 
 async function main() {
