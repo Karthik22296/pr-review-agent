@@ -29,7 +29,7 @@ AI provider
     ↓
 Structured findings
     ↓
-GitHub PR review comment
+GitHub PR review & inline comments
 ```
 
 Gemini is the first provider, but the provider interface is intentionally replaceable.

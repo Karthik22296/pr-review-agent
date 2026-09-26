@@ -163,7 +163,7 @@ jobs:
           fs.writeFileSync('/tmp/review.md', body);
           NODE
           if [ -f /tmp/review.md ]; then
-            gh pr comment "$PR_NUMBER" --repo "$REPOSITORY" --body-file /tmp/review.md
+            gh pr review "$PR_NUMBER" --repo "$REPOSITORY" --comment --body-file /tmp/review.md || gh pr comment "$PR_NUMBER" --repo "$REPOSITORY" --body-file /tmp/review.md
           fi
 
       - name: Publish inline comments
