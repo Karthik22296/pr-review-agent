@@ -109,3 +109,5 @@ jobs:
           fs.writeFileSync('/tmp/review.md', body);
           NODE
           gh pr comment "$PR_NUMBER" --repo "$REPOSITORY" --body-file /tmp/review.md
+
+# Inline comment publishing is intentionally best-effort; summary remains the fallback.
