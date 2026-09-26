@@ -79,7 +79,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           REVIEW_CONTEXT: ${{ steps.context.outputs.context }}
           AI_PROVIDER: gemini
-          AI_MODEL: ${{ inputs.ai-model }}
+          AI_MODEL: ${{ inputs.ai-model || 'gemini-2.5-flash' }}
         run: node dist/index.js > /tmp/review.json
 
       - name: Publish review
@@ -90,6 +90,10 @@ jobs:
         run: |
           node - <<'NODE'
           const fs = require('fs');
+          if (!fs.existsSync('/tmp/review.json') || fs.statSync('/tmp/review.json').size === 0) {
+            console.log('No review output generated (e.g. GEMINI_API_KEY secret not configured). Skipping comment publication.');
+            process.exit(0);
+          }
           const r = JSON.parse(fs.readFileSync('/tmp/review.json', 'utf8'));
           const findings = (r.findings || []).map(f =>
             `- **${f.severity.toUpperCase()} — ${f.title}** (${f.category})\n  ${f.body}`
@@ -108,4 +112,6 @@ jobs:
           ].join('\n');
           fs.writeFileSync('/tmp/review.md', body);
           NODE
-          gh pr comment "$PR_NUMBER" --repo "$REPOSITORY" --body-file /tmp/review.md
+          if [ -f /tmp/review.md ]; then
+            gh pr comment "$PR_NUMBER" --repo "$REPOSITORY" --body-file /tmp/review.md
+          fi

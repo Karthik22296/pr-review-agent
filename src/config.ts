@@ -19,7 +19,7 @@ export function loadConfig(): ReviewConfig {
     maxDiffCharacters: envNumber("REVIEW_MAX_DIFF_CHARS", 120000),
     maxFindings: envNumber("REVIEW_MAX_FINDINGS", 15),
     minimumConfidence: Number(process.env.REVIEW_MIN_CONFIDENCE ?? 0.75),
-    model: process.env.AI_MODEL ?? "gemini-2.5-flash"
+    model: process.env.AI_MODEL || "gemini-2.5-flash"
   };
 }
 

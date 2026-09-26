@@ -10,8 +10,14 @@ async function main() {
     throw new Error(`Unsupported AI_PROVIDER: ${providerName}`);
   }
 
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    console.warn("Notice: GEMINI_API_KEY is not configured in repository secrets. Skipping review execution.");
+    return;
+  }
+
   const provider = new GeminiProvider(
-    process.env.GEMINI_API_KEY ?? "",
+    apiKey,
     config.model
   );
 
