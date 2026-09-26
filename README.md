@@ -7,11 +7,15 @@ A global, repository-agnostic AI-powered GitHub Pull Request reviewer built with
 ## Features
 
 - **Formal GitHub PR Reviews**: Posts official review summaries via `gh pr review`, registering the agent in the PR Reviewers sidebar with review status.
+- **1-Click "Apply Suggestion" Blocks**: Inline comments include native GitHub ` ```suggestion ` blocks, allowing developers to commit recommended fixes directly from the PR diff with a single click.
+- **PR Risk Assessment & Changes Walkthrough**: Delivers a clear risk level (`🟢 Low`, `🟡 Medium`, `🔴 High`) with rationale alongside a structured Markdown table summarizing file-by-file changes.
+- **Noise & Lockfile Exclusion**: Intelligently strips lockfiles (`package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`), build artifacts (`dist/`, `build/`), minified files (`*.min.js`), and binary assets from the diff and source context to conserve tokens and eliminate false positives.
 - **Line-Anchored Inline Comments**: Posts findings anchored to exact file diff lines with automatic `<!-- pr-review-fingerprint -->` SHA-256 deduplication so identical comments are not re-posted across incremental pushes.
 - **Repository Stack Detection**: Automatically scans tree blobs to detect languages, frameworks, and tools (Angular, React, Vue, Node.js, Python, Java, Go, Rust, Docker, etc.) and injects tailored context into the prompt.
 - **Source Context Enrichment**: Fetches complete source content for modified files to provide the AI model with surrounding context beyond the raw diff.
 - **CI / Static Checks Integration**: Aggregates conclusions from preceding or concurrent GitHub Actions check runs (linters, test suites, builds) to inform the review.
 - **Customizable Repository Rules**: Consuming repositories can supply `.github/pr-review.yml` to toggle categories, enable/disable reviews, or define project-specific coding guidelines.
+- **Automated PR Labels**: Automatically creates and applies the `ai-reviewed` label to pull requests once the review completes.
 - **Robust Provider Architecture**: Pluggable AI provider interface with Gemini integration, exponential backoff retries for transient 503/429 errors, and defensive JSON schema validation.
 
 ---
@@ -24,20 +28,22 @@ A global, repository-agnostic AI-powered GitHub Pull Request reviewer built with
                Caller Workflow (Consumer Repository)
                                 ↓
     Reusable Workflow (.github/workflows/pr-review.yml@main)
+     ├── Noise & Lockfile filtering (src/filter.ts)
      ├── Git diff & PR metadata collection
      ├── Repository stack detection (src/stack.ts)
-     ├── Changed-file source enrichment
+     ├── Filtered changed-file source enrichment
      ├── Preceding CI check runs collection
      └── Repository rule loading (.github/pr-review.yml)
                                 ↓
                         AI Provider Runner
      ├── Provider Registry (src/providers/registry.ts)
      ├── Gemini Provider with exponential retries (src/providers/gemini.ts)
-     └── Defensive finding schema validation (src/validation.ts)
+     └── Defensive schema validation with suggestions (src/validation.ts)
                                 ↓
                        Review Publication
-     ├── Line-anchored inline diff comments (src/publish-inline.ts)
-     └── Formal GitHub Review submission (gh pr review --comment)
+     ├── 1-Click inline suggestion comments (src/publish-inline.ts)
+     ├── Formal GitHub Review with Risk Badge & Walkthrough Table (gh pr review)
+     └── Automated PR labeling (ai-reviewed)
 ```
 
 ---
@@ -67,7 +73,7 @@ jobs:
 ```
 
 > **Note on Permissions**:
-> The caller workflow must grant `pull-requests: write` and `contents: read` so that the reusable workflow can inspect diffs, fetch source context, and publish formal reviews and inline comments.
+> The caller workflow must grant `pull-requests: write` and `contents: read` so that the reusable workflow can inspect diffs, fetch source context, and publish formal reviews, inline comments, and labels.
 
 ### Secret Setup
 
@@ -105,12 +111,18 @@ custom_rules:
 
 ## Review Output
 
-1. **Official GitHub PR Review**:
-   - The overall summary, findings breakdown, and test recommendations are submitted as a GitHub Pull Request Review (`gh pr review --comment`).
-   - The bot appears under the **Reviewers** section on the pull request sidebar.
-2. **Inline Comments**:
-   - High-confidence findings with valid file paths and line numbers are posted directly on the corresponding diff lines.
-   - Each comment includes a deterministic SHA-256 fingerprint comment header to prevent duplicates across PR updates.
+1. **Official GitHub PR Review (`gh pr review`)**:
+   - **Risk Level**: Evaluates overall PR risk (`Low`, `Medium`, `High`) based on security, auth, database, breaking API, or state modifications.
+   - **Changes Walkthrough**: A markdown table summarizing changes made to each file.
+   - **Findings**: Categorized issues with severity tags and remediation notes.
+   - **Recommended Tests**: Suggestions for missing test cases.
+   - **Sidebar**: The agent appears as an official reviewer with a `Commented` review badge.
+2. **1-Click Inline Diff Comments**:
+   - High-confidence findings anchored to specific diff lines.
+   - Includes interactive GitHub ```` ```suggestion ```` blocks allowing 1-click commits of proposed fixes.
+   - Deterministic SHA-256 fingerprint comments prevent duplicates across incremental PR pushes.
+3. **Labels**:
+   - Automatically tags pull requests with `ai-reviewed`.
 
 ---
 
@@ -157,9 +169,13 @@ npm run build
 - [x] Reusable GitHub Actions workflow and Gemini provider
 - [x] Multi-provider registry interface
 - [x] Repository and framework stack detection
+- [x] Noise and lockfile filtering (`package-lock.json`, minified files)
 - [x] Changed-file source context enrichment
 - [x] Static-analysis & CI check result integration
 - [x] Defensive finding schema validation
 - [x] Line-anchored inline diff comments with SHA-256 fingerprint deduplication
+- [x] 1-Click GitHub "Apply Suggestion" blocks
+- [x] PR Risk Assessment and File Changes Walkthrough table
 - [x] Official GitHub PR Review submission (`gh pr review`)
-- [ ] Review metrics and telemetry
+- [x] Automated PR labeling (`ai-reviewed`)
+- [ ] Interactive `/ask` and `/review` PR comment trigger commands

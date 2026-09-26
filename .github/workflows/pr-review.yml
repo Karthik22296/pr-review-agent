@@ -30,6 +30,18 @@ jobs:
           repository: Karthik22296/pr-review-agent
           ref: ${{ github.repository == 'Karthik22296/pr-review-agent' && (github.event.pull_request.head.sha || github.sha) || 'main' }}
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build agent
+        run: npm run build
+
       - name: Build review context
         id: context
         env:
@@ -38,7 +50,8 @@ jobs:
           REPOSITORY: ${{ github.repository }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          gh pr diff "$PR_NUMBER" --repo "$REPOSITORY" > /tmp/pr.diff
+          gh pr diff "$PR_NUMBER" --repo "$REPOSITORY" > /tmp/pr-raw.diff
+          node --input-type=module -e 'import fs from "node:fs"; import("./dist/filter.js").then(({filterDiff}) => { fs.writeFileSync("/tmp/pr.diff", filterDiff(fs.readFileSync("/tmp/pr-raw.diff", "utf8"))); })'
           {
             echo "Repository: $REPOSITORY"
             echo "PR: #$PR_NUMBER"
@@ -48,7 +61,8 @@ jobs:
           } > /tmp/review-context.txt
 
           # Read optional repository-specific rules as data only.
-          if gh api "repos/$REPOSITORY/contents/.github/pr-review.yml?ref=$HEAD_SHA"               --jq '.content' 2>/dev/null | base64 -d > /tmp/repo-review.yml; then
+          if gh api "repos/$REPOSITORY/contents/.github/pr-review.yml?ref=$HEAD_SHA" \
+            --jq '.content' 2>/dev/null | base64 -d > /tmp/repo-review.yml; then
             {
               echo
               echo "Repository-specific review configuration:"
@@ -61,18 +75,6 @@ jobs:
             cat /tmp/review-context.txt
             echo EOF
           } >> "$GITHUB_OUTPUT"
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Build agent
-        run: npm run build
 
       - name: Detect repository stack
         env:
@@ -91,7 +93,8 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          gh api "repos/$REPOSITORY/pulls/$PR_NUMBER/files?per_page=100" --paginate --jq '.[].filename' | head -n 20 > /tmp/changed-files.txt
+          gh api "repos/$REPOSITORY/pulls/$PR_NUMBER/files?per_page=100" --paginate --jq '.[].filename' | head -n 50 > /tmp/changed-files-raw.txt
+          node --input-type=module -e 'import fs from "node:fs"; import("./dist/filter.js").then(({isIgnoredFile}) => { const files = fs.readFileSync("/tmp/changed-files-raw.txt", "utf8").split("\n").filter(f => f && !isIgnoredFile(f)).slice(0, 20); fs.writeFileSync("/tmp/changed-files.txt", files.join("\n")); })'
           while IFS= read -r path; do
             [ -z "$path" ] && continue
             encoded=$(node -e 'console.log(encodeURIComponent(process.argv[1]))' "$path")
@@ -145,25 +148,61 @@ jobs:
             process.exit(0);
           }
           const r = JSON.parse(fs.readFileSync('/tmp/review.json', 'utf8'));
-          const findings = (r.findings || []).map(f =>
-            `- **${f.severity.toUpperCase()} — ${f.title}** (${f.category})\n  ${f.body}`
-          ).join('\n');
+
+          const riskBadge = {
+            low: '🟢 **Risk Level: Low**',
+            medium: '🟡 **Risk Level: Medium**',
+            high: '🔴 **Risk Level: High**'
+          }[r.riskLevel || 'low'] || '🟢 **Risk Level: Low**';
+
+          const riskSection = r.riskReason
+            ? `${riskBadge} — *${r.riskReason}*`
+            : riskBadge;
+
+          let walkthroughSection = '';
+          if (Array.isArray(r.fileWalkthrough) && r.fileWalkthrough.length > 0) {
+            const rows = r.fileWalkthrough.map(f => `| \`${f.path}\` | ${f.summary} |`).join('\n');
+            walkthroughSection = `### 📋 Changes Walkthrough\n| File | Summary |\n| :--- | :--- |\n${rows}`;
+          }
+
+          const findings = (r.findings || []).map(f => {
+            const suggestion = f.suggestion ? `\n\n\`\`\`suggestion\n${f.suggestion}\n\`\`\`` : '';
+            return `- **${f.severity.toUpperCase()} — ${f.title}** (${f.category})\n  ${f.body}${suggestion}`;
+          }).join('\n\n');
+
           const tests = (r.tests || []).map(t => `- ${t}`).join('\n');
-          const body = [
+
+          const bodyParts = [
             '## 🤖 Initial PR Review',
             '',
+            riskSection,
+            '',
+            '### Summary',
             r.summary || 'No summary provided.',
-            '',
-            findings ? '### Findings\n' + findings : '### Findings\nNo high-confidence findings identified.',
-            '',
-            tests ? '### Tests\n' + tests : '',
-            '',
+            ''
+          ];
+
+          if (walkthroughSection) {
+            bodyParts.push(walkthroughSection, '');
+          }
+
+          bodyParts.push(
+            findings ? '### 🔍 Findings\n\n' + findings : '### 🔍 Findings\n\nNo high-confidence issues identified.',
+            ''
+          );
+
+          if (tests) {
+            bodyParts.push('### 🧪 Recommended Tests\n\n' + tests, '');
+          }
+
+          bodyParts.push(
             '> Informational review generated by the global PR Review Agent. Human review remains authoritative.'
-          ].join('\n');
-          fs.writeFileSync('/tmp/review.md', body);
+          );
+
+          fs.writeFileSync('/tmp/review.md', bodyParts.join('\n'));
           NODE
           if [ -f /tmp/review.md ]; then
-            gh pr comment "$PR_NUMBER" --repo "$REPOSITORY" --body-file /tmp/review.md
+            gh pr review "$PR_NUMBER" --repo "$REPOSITORY" --comment --body-file /tmp/review.md || gh pr comment "$PR_NUMBER" --repo "$REPOSITORY" --body-file /tmp/review.md
           fi
 
       - name: Publish inline comments
@@ -173,3 +212,13 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: node dist/publish-inline.js
+
+      - name: Add PR labels
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          gh label create "ai-reviewed" --repo "$REPOSITORY" --color "0E8A16" --description "Reviewed by AI PR Review Agent" 2>/dev/null || true
+          gh pr edit "$PR_NUMBER" --repo "$REPOSITORY" --add-label "ai-reviewed" 2>/dev/null || true

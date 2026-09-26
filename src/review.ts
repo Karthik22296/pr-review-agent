@@ -9,16 +9,25 @@ export interface Finding {
   confidence: number;
   path?: string | null;
   line?: number | null;
+  suggestion?: string | null;
+}
+
+export interface FileWalkthrough {
+  path: string;
+  summary: string;
 }
 
 export interface ReviewResult {
   summary: string;
+  riskLevel?: "low" | "medium" | "high";
+  riskReason?: string;
+  fileWalkthrough?: FileWalkthrough[];
   findings: Finding[];
   tests: string[];
 }
 
 function stripJsonFence(value: string): string {
-  return value.replace(/^\s*\`\`\`(?:json)?\s*/i, "").replace(/\s*\`\`\`\s*$/i, "").trim();
+  return value.replace(/^\s*```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
 }
 
 export async function runReview(
@@ -30,7 +39,15 @@ export async function runReview(
   const system = `You are a senior software engineer performing an initial GitHub pull request review.
 Return ONLY valid JSON matching this shape:
 {
-  "summary": "short review summary",
+  "summary": "concise 2-3 sentence overview of the pull request changes and intent",
+  "riskLevel": "low|medium|high",
+  "riskReason": "brief explanation of risk level based on security, auth, database, breaking API, or complex state logic",
+  "fileWalkthrough": [
+    {
+      "path": "path/to/file",
+      "summary": "concise description of changes made to this file"
+    }
+  ],
   "findings": [
     {
       "severity": "critical|high|medium|low",
@@ -39,7 +56,8 @@ Return ONLY valid JSON matching this shape:
       "body": "actionable explanation",
       "confidence": 0.0,
       "path": "changed/path or null",
-      "line": 1
+      "line": 1,
+      "suggestion": "concrete replacement code lines that fix the issue for GitHub 1-click suggestion block, or null if not applicable"
     }
   ],
   "tests": ["missing or recommended tests"]

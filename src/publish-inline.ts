@@ -8,6 +8,7 @@ interface Finding {
   body: string;
   path?: string | null;
   line?: number | null;
+  suggestion?: string | null;
 }
 
 async function main() {
@@ -60,6 +61,10 @@ async function main() {
     const fingerprint = findingFingerprint(finding);
     if (existingFingerprints.has(fingerprint)) continue;
 
+    const suggestionBlock = finding.suggestion?.trim()
+      ? `\n\n\`\`\`suggestion\n${finding.suggestion.trim()}\n\`\`\``
+      : "";
+
     const response = await fetch(`https://api.github.com/repos/${repository}/pulls/${prNumber}/comments`, {
       method: "POST",
       headers: {
@@ -69,7 +74,7 @@ async function main() {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        body: `<!-- pr-review-fingerprint:${fingerprint} -->\n**${finding.severity.toUpperCase()} — ${finding.title}** (${finding.category})\n\n${finding.body}`,
+        body: `<!-- pr-review-fingerprint:${fingerprint} -->\n**${finding.severity.toUpperCase()} — ${finding.title}** (${finding.category})\n\n${finding.body}${suggestionBlock}`,
         commit_id: commitId,
         path: finding.path,
         line: finding.line,
