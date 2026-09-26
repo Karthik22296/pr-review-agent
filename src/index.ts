@@ -1,14 +1,10 @@
 import { loadConfig, loadRules } from "./config.js";
-import { GeminiProvider } from "./providers/gemini.js";
+import { createProvider } from "./providers/registry.js";
 import { runReview } from "./review.js";
 
 async function main() {
   const config = loadConfig();
   const providerName = process.env.AI_PROVIDER ?? "gemini";
-
-  if (providerName !== "gemini") {
-    throw new Error(`Unsupported AI_PROVIDER: ${providerName}`);
-  }
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -16,10 +12,10 @@ async function main() {
     return;
   }
 
-  const provider = new GeminiProvider(
+  const provider = createProvider(providerName, {
     apiKey,
-    config.model
-  );
+    model: config.model
+  });
 
   const context = process.env.REVIEW_CONTEXT;
   if (!context) throw new Error("REVIEW_CONTEXT is required");
