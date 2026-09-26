@@ -13,7 +13,7 @@ on:
       ai-model-deep:
         required: false
         type: string
-        default: gemini-3.1-pro
+        default: gemini-3.8-flash
 
   pull_request:
     types: [opened, synchronize, reopened]
@@ -142,7 +142,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           REVIEW_CONTEXT_FILE: /tmp/review-context.txt
           AI_PROVIDER: gemini
-          AI_MODEL: ${{ steps.triage.outputs.is_risky == 'true' && (inputs.ai-model-deep || 'gemini-3.1-pro') || (inputs.ai-model || 'gemini-3.8-flash') }}
+          AI_MODEL: ${{ steps.triage.outputs.is_risky == 'true' && (inputs.ai-model-deep || 'gemini-3.8-flash') || (inputs.ai-model || 'gemini-3.8-flash') }}
           DEEP_REVIEW_MODE: ${{ steps.triage.outputs.is_risky }}
           TRIAGE_REASON: ${{ steps.triage.outputs.triage_reason }}
         run: node dist/index.js > /tmp/review.json
