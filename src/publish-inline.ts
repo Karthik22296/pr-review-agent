@@ -24,7 +24,19 @@ async function main() {
     return;
   }
 
-  const review = JSON.parse(readFileSync("/tmp/review.json", "utf8")) as { findings?: Finding[] };
+  let review: { findings?: Finding[] };
+  try {
+    const raw = readFileSync("/tmp/review.json", "utf8").trim();
+    if (!raw) {
+      console.log("review.json is empty; skipping inline comments.");
+      return;
+    }
+    review = JSON.parse(raw);
+  } catch (error) {
+    console.warn("Could not parse /tmp/review.json; skipping inline comments:", error);
+    return;
+  }
+
   const findings = (review.findings ?? []).filter(f => f.path && Number.isInteger(f.line) && Number(f.line) > 0);
   if (findings.length === 0) return;
 
